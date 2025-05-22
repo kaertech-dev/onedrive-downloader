@@ -3,11 +3,11 @@ import threading
 import os
 import pycurl
 from sys import stderr as STREAM
-from auth_callback import *
+import auth_callback
 
 class OneDriveConnector:
 
-    MSGRAPH_SCOPE = "https://graph.microsoft.com/.default"
+    MSGRAPH_SCOPE = "User.Read offline_access"
     MSGRAPH_ME = "https://graph.microsoft.com/v1.0/me"
     KB = 1024
 
@@ -56,6 +56,7 @@ class OneDriveConnector:
     def __download(self, url, file_path):
         with open(file_path, "wb") as f:
             curl = pycurl.Curl()
+            # curl.setopt(pycurl.CAINFO, '/etc/ssl/certs/ca-certificates.crt')
             curl.setopt(pycurl.XOAUTH2_BEARER, self.access_token)
             curl.setopt(pycurl.URL, url)
             curl.setopt(pycurl.WRITEDATA, f)
@@ -76,7 +77,7 @@ class OneDriveConnector:
         data = {
             "client_id": self.client,
             "response_type": "code",
-            "redirect_uri": get_auth_callback_url(),
+            "redirect_uri": auth_callback.get_auth_callback_url(),
             "scope": self.MSGRAPH_SCOPE,
             "state": "good"
         }
@@ -86,24 +87,23 @@ class OneDriveConnector:
         # Follow the link to sign in and get auth code
         print(auth_url)
         # Start web-server to get authorization code
-        flask_thread = threading.Thread(target=auth_callback_task)
+        flask_thread = threading.Thread(target=auth_callback.auth_callback_task)
         flask_thread.start()
         # Wait for the auth code to be redirected
-        return auth_callback_event.wait(timeout=60)
+        return auth_callback.auth_callback_event.wait(timeout=60)
 
     def get_new_tokens(self):
         if not self.__request_authorization_code():
             print("Authorization code timeout")
 
-        global web_app_auth_data
         data = {
             "client_id": self.client,
             "response_type": "token",
             "scope": self.MSGRAPH_SCOPE,
             "grant_type": "authorization_code",
-            "redirect_uri": get_auth_callback_url(),
+            "redirect_uri": auth_callback.get_auth_callback_url(),
             "client_secret": self.secret,
-            "code": web_app_auth_data.get('code')
+            "code": auth_callback.web_app_auth_data.get('code')
         }
         response = requests.post(self.token_endpoint, data=data).json()
         self.access_token = response.get('access_token')

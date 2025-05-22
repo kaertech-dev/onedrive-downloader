@@ -2,8 +2,8 @@ from flask import Flask, request
 import threading
 
 auth_callback_app = Flask(__name__)
-auth_callback_app_data = None
 auth_callback_event = threading.Event()
+web_app_auth_data = None
 
 @auth_callback_app.route('/auth-callback', methods=['GET'])
 def auth_callback():
